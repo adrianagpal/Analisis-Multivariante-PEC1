@@ -9,6 +9,10 @@ output:
 library(dplyr)
 library(ggplot2)
 library(factoextra)
+library(labdsv)
+library(vegan)
+library(MASS)
+
 set.seed(4567)
 
 knitr::opts_chunk$set(fig.width=6, fig.height=3, fig.align="center")
@@ -130,3 +134,40 @@ fviz_pca_var(virus.pcscale,
 
 **Identificar el virus que está entre dos grupos. Utilizar como etiquetas las originales de la base de datos completa. Ajustar el tamaño de las etiquetas para que sean visibles en el gráfico de dispersión.**
 
+## Ejercicio 3
+**Realizar un análisis MDS clásico con la distancia euclídea entre los virus del grupo Tobamovirus y con las variables sin escalar.**
+```{r}
+# Calcular matriz de distancias euclídeas
+D <- as.matrix(dist(tobamovirus[1:(ncol(tobamovirus) - 1)]))
+```
+
+**Dibujar el gráfico de dispersión en dos dimensiones y valorar el resultado.**
+```{r}
+# Análisis MDS
+mds <- cmdscale(D,eig=T); mds
+
+plot(mds$points,type="n",xlab="PC1",ylab="PC2")
+abline(h=0,v=0,lty=4,col="gray")
+text(mds$points[,1], mds$points[,2],cex=0.8)
+title("MDS con distancia euclídea")
+```
+
+**Uno de los objetivos del estudio es hallar virus aislados o “alejados de cualquier grupo”. Para ello podemos utilizar el gráfico mean vs minimum de la función disana() del paquete labdsv. Los puntos más a la derecha y arriba nos indican observaciones alejadas de cualquier grupo.**
+```{r}
+disana(D, panel = 3)
+```
+
+## Ejercicio 4
+**Como las variables son puntuaciones no continuas, la distancia euclídea no parece la mejor elección. Entre las alternativas podemos considerar la distancia de Bray-Curtis. Realizar un MDS no métrico de Kruskal con la distancia de Bray-Curtis entre los virus del grupo Tobamovirus.**
+```{r}
+dist.bc <- vegdist(tobamovirus[1:(ncol(tobamovirus) - 1)], "bray")
+
+nmds.iso <- isoMDS(dist.bc, trace = FALSE)
+
+```
+
+**¿Por qué debemos realizar un MDS no métrico, mejor que un MDS métrico clásico?
+Dibujar un scree plot sobre el stress para evaluar el número de ejes a considerar.
+Dibujar también un gráfico de Shepard para comparar las distancias originales y las propuestas por el
+MDS no métrico con 2 dimensiones.
+¿Cuantos subgrupos vemos en el gráfico de dispersión con 2 dimensiones?
