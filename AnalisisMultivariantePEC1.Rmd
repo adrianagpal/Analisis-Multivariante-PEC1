@@ -8,6 +8,7 @@ output:
 ```{r}
 library(dplyr)
 library(ggplot2)
+library(factoextra)
 set.seed(4567)
 
 knitr::opts_chunk$set(fig.width=6, fig.height=3, fig.align="center")
@@ -52,10 +53,80 @@ ggplot(df, aes(x = total_residue)) +
 **(d) Dibujar el diagrama de cajas (boxplot) de la figura 3. Identificar el valor atípico más destacado del grupo de los Furoviruses.**
 ```{r}
 ggplot(df, aes(x = virus_group, y = total_residue)) + 
-  geom_boxplot() +
+  geom_boxplot(outlier.shape = "-") +
   theme_classic() +
   xlab("virus group") + ylab("total residue")
 ```
 
+**(e) Dividir la variable total_residue en una partición de cuatro intervalos de forma que podamos clasificar los tipos de virus perfectamente, excepto un único virus extraño.**
+```{r}
+categories <- unique(df$virus_group)
 
+for (category in categories){
+  print(category)
+  print(range(df$total_residue[df$virus_group == category]))
+}
+
+breaks <- c(120, 165, 185, 195, 240)
+
+df$class <- cut(df$total_residue,
+                breaks = breaks)
+```
+
+# Ejercicio 2
+**En este apartado y los siguientes vamos a trabajar únicamente con los Tobamoviruses. Recordar que hay dos virus con idénticas puntuaciones y únicamente incluiremos uno. Luego el primer paso es identificar y eliminar uno de los virus.**
+
+**Realizar un análisis de componentes principales con los n = 38 virus del grupo Tobamovirus con las p = 18 características. Considerar las variables “tal cual” y repetir el análisis con las variables escaladas. Utilizar un máximo de 6 componentes. Realizar los gráficos y todas las explicaciones sobre este análisis.**
+
+```{r}
+tobamovirus <- virus[which(virus$type == "Toba"),]
+
+# Eliminamos duplicado
+tobamovirus <- tobamovirus %>% distinct()
+
+virus.pc <- prcomp(tobamovirus[1:(ncol(tobamovirus) - 1)], scale = FALSE)
+
+fviz_eig(virus.pc, ncp = 6)
+summary(virus.pc)
+
+fviz_pca_ind(virus.pc,
+             col.ind = "cos2", # Color by the quality of representation
+             gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"),
+             repel = TRUE     # Avoid text overlapping
+             )
+
+fviz_pca_var(virus.pc,
+             col.var = "contrib", # Color by contributions to the PC
+             gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"),
+             repel = TRUE     # Avoid text overlapping
+             )
+
+(eig.val <- get_eigenvalue(virus.pc))
+
+# PCA con variables escaladas
+virus.pcscale <- prcomp(tobamovirus[1:(ncol(tobamovirus) - 1)], scale = TRUE)
+
+fviz_eig(virus.pcscale, ncp = 6)
+summary(virus.pcscale)
+
+fviz_pca_ind(virus.pcscale,
+             col.ind = "cos2", # Color by the quality of representation
+             gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"),
+             repel = TRUE     # Avoid text overlapping
+             )
+
+fviz_pca_var(virus.pcscale,
+             col.var = "contrib", # Color by contributions to the PC
+             gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"),
+             repel = TRUE     # Avoid text overlapping
+             )
+
+(eig.val <- get_eigenvalue(virus.pcscale))
+```
+
+**¿Cuales son las variables con mayor contribución a los dos primeros ejes en los dos análisis?**
+
+**¿Se observan algunas agrupaciones de los virus? ¿Cuantas?**
+
+**Identificar el virus que está entre dos grupos. Utilizar como etiquetas las originales de la base de datos completa. Ajustar el tamaño de las etiquetas para que sean visibles en el gráfico de dispersión.**
 
