@@ -12,6 +12,7 @@ library(factoextra)
 library(labdsv)
 library(vegan)
 library(MASS)
+library(ca)
 
 set.seed(4567)
 
@@ -24,11 +25,8 @@ knitr::opts_chunk$set(fig.width=6, fig.height=3, fig.align="center")
 ```{r}
 load(file = "virus.rda")
 
-# Eliminamos duplicado
-virus_nodup <- virus %>% distinct()
-
 # Calculamos totales por virus
-(total_residue <- rowSums(virus_nodup[1:(ncol(virus) - 1)]))
+(total_residue <- rowSums(virus[1:(ncol(virus) - 1)]))
 
 # Recorrido variable
 range(total_residue)
@@ -38,12 +36,12 @@ range(total_residue)[2] - range(total_residue)[1] # max - min
 
 **(b) Calcular las medias para cada aminoácido.**
 ```{r}
-round(colMeans(virus_nodup[1:(ncol(virus_nodup) - 1)]), 3)
+round(colMeans(virus[1:(ncol(virus) - 1)]), 3)
 ```
 
 **(c) Dibujar el histograma de la figura 3. Para ello habrá que fijar las marcas de clase en algunos valores como 120, . . . , 160, . . . , 180, . . . y además un ancho de barra de 5. Cualquier otra configuración distorsiona el histograma que resulta un gráfico poco robusto.**
 ```{r}
-df <- data.frame(total_residue, "virus_group" = virus_nodup$type)
+df <- data.frame(total_residue, "virus_group" = virus$type)
 
 ggplot(df, aes(x = total_residue)) +
   geom_histogram(color="white", fill = "darkgray", binwidth = 5) +
@@ -283,7 +281,7 @@ as.table(as.matrix(tobamovirus[1:(ncol(tobamovirus) - 1)]))
 
 tabla.N <- as.table(as.matrix(tobamovirus[1:(ncol(tobamovirus) - 1)]))
 
-(tabla.F <- round(tabla.N/ sum(tabla.N), 3))
+tabla.F <- tabla.N/ sum(tabla.N)
 
 # Frecuencias relativas marginales.
 margin.f <- apply(tabla.F,1,sum)
@@ -309,10 +307,33 @@ names(dc) <- rownames(tabla.N); dc
 
 as.numeric(dc %*% margin.f)
 
+# Inercia total
 as.numeric(chisq.test(tabla.N)$stat)/sum(tabla.N)
+
+sum(ca(tabla.N)$rowinertia)
+
+plot(ca(tabla.F))
+title(main="Solución simétrica", line=1)
+
+
+Z <- diag(1/sqrt(margin.f)) %*% (tabla.F - margin.f %*% t(margin.c)) %*% diag(1/sqrt(margin.c))
+                                                            
+Z.svd <- svd(Z); Z.svd
+
+f.sc <- diag(1/sqrt(margin.f)) %*% Z.svd$u
+c.sc <- diag(1/sqrt(margin.c)) %*% Z.svd$v
+f.pc <- f.sc %*% diag(Z.svd$d)
+c.pc <- c.sc %*% diag(Z.svd$d)                   
+                                                            library(MASS)        # Mapa de distancias con filas y columnas                
+eqscplot(f.pc[,1:2],type="n",xlab="PC1",ylab="PC2",xlim=c(-1,1.2))
+abline(v=0,h=0, col="gray",lty=4)
+text(f.pc[,1],f.pc[,2],labels=rownames(tabla.F),cex=0.8,font=2,col="blue")
+text(c.pc[,1],c.pc[,2],labels=colnames(tabla.F),cex=0.8,font=2,col= "red")
+title(main="Solución simétrica",line=1)
 ```
 
-
+## Ejercicio 9
+**Realizar un brevísimo informe con las conclusiones sobre la formación de grupos con los datos de Tobamovirus que se deducen de los ejercicios anteriores.**
 
 ## Bibliografía
 
