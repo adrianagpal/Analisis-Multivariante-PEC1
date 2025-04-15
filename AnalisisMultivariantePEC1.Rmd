@@ -163,11 +163,157 @@ disana(D, panel = 3)
 dist.bc <- vegdist(tobamovirus[1:(ncol(tobamovirus) - 1)], "bray")
 
 nmds.iso <- isoMDS(dist.bc, trace = FALSE)
-
 ```
 
-**¿Por qué debemos realizar un MDS no métrico, mejor que un MDS métrico clásico?
-Dibujar un scree plot sobre el stress para evaluar el número de ejes a considerar.
-Dibujar también un gráfico de Shepard para comparar las distancias originales y las propuestas por el
-MDS no métrico con 2 dimensiones.
-¿Cuantos subgrupos vemos en el gráfico de dispersión con 2 dimensiones?
+**¿Por qué debemos realizar un MDS no métrico, mejor que un MDS métrico clásico?**
+```{r}
+library(ade4)
+
+is.euclid(dist.bc,print=T)
+```
+
+**Dibujar un scree plot sobre el stress para evaluar el número de ejes a considerar. Dibujar también un gráfico de Shepard para comparar las distancias originales y las propuestas por el MDS no métrico con 2 dimensiones. ¿Cuantos subgrupos vemos en el gráfico de dispersión con 2 dimensiones?**
+```{r}
+n <- nrow(as.matrix(dist.bc))
+unos <- rep(1,n)
+I <- diag(unos)
+H <- I - 1/n*(unos %*% t(unos))
+B <- -1/2*(H %*% as.matrix(dist.bc) %*% H)
+rownames(B) <- rownames(as.matrix(dist.bc))
+colnames(B) <- colnames(as.matrix(dist.bc))
+evv <- eigen(B)$values; evv
+
+pb <- evv[1:10]/sum(evv[1:10])*100; round(pb,2)
+
+names(pb) <- paste("PC",1:10)
+barplot(pb,ylab="porcentaje")
+title(main="Porcentaje acumulado de cobertura",line=1.5)
+
+
+stress_values <- numeric(10)
+for (k in 1:10) {
+  fit <- isoMDS(dist.bc, k = k, trace = FALSE)
+  stress_values[k] <- fit$stress
+}
+
+plot(1:10, stress_values, type = "b", pch = 19,
+     xlab = "Número de dimensiones (k)", ylab = "Stress",
+     main = "Scree plot - MDS no métrico (Bray-Curtis)")
+abline(h = 0.2, col = "red", lty = 2)  # línea de referencia
+```
+
+```{r}
+nmds.iso$stress
+
+scree.plot = function(d, k) {
+    stresses=isoMDS(d, k=k)$stress
+    for(i in rev(seq(k-1)))  
+        stresses=append(stresses,isoMDS(d, k=i)$stress)
+    plot(seq(k),rev(stresses), type="b", xaxp=c(1,k, k-1), ylab="Stress", xlab="Number of dimensions")
+    }
+
+scree.plot(dist.bc, k=6)
+
+nmds.sh <- Shepard(dist.bc, nmds.iso$points)
+plot(nmds.sh, pch="x")
+```
+
+## Ejercicio 5
+**Realizar un mapa no lineal de Sammon, es decir, otro tipo de MDS no métrico con la distancia de Bray-Curtis y los datos de Tobamovirus. Dibujar los gráficos del apartado anterior y responder las mismas cuestiones.**
+```{r}
+nmds.sa <- sammon(dist.bc, trace = FALSE)
+
+eqscplot(nmds.sa$points, type="n")
+text(nmds.sa$points, cex=.8)
+```
+
+## Ejercicio 6
+**Por último vamos a utilizar una técnica que pretende hallar la proyección más “interesante” de un conjunto multivariante de datos. Se trata de la llamada projection pursuit (PP).**
+```{r}
+library(Pursuit)
+
+pp_ft <- PP_Optimizer(tobamovirus[1:(ncol(tobamovirus) - 1)], findex = "friedmantukey")
+
+pp_ht <- PP_Optimizer(tobamovirus[1:(ncol(tobamovirus) - 1)], findex = "hermite")
+
+plot(pp_ft$proj.data)
+
+plot(pp_ht$proj.data)
+```
+## Ejercicio 7
+**Otra distancia que se utiliza mucho con puntuaciones o frecuencias es la distancia ji-cuadrado. Comprobar que la matriz D de esta distancia sobre los datos de Tobamovirus verifica que**
+
+$$
+B = −1/2  H(D × D)H
+$$
+**es semidefinida positiva y, por lo tanto, la distancia es euclídea. La matriz H es la matriz de centrado. Realizar un MDS con esta distancia y comentar el resultado respecto a los ejercicios anteriores.**
+
+```{r}
+library(svs)
+
+dist.chisq <- dist_chisquare(as.matrix(tobamovirus[1:(ncol(tobamovirus) - 1)]), diag = TRUE, upper = TRUE)
+
+n <- nrow(as.matrix(dist.chisq))
+unos <- rep(1,n)
+I <- diag(unos)
+H <- I - 1/n*(unos %*% t(unos))
+B <- -1/2*(H %*% as.matrix(dist.chisq) %*% H)
+rownames(B) <- rownames(as.matrix(dist.chisq))
+colnames(B) <- colnames(as.matrix(dist.chisq))
+evv <- eigen(B)$values; evv
+
+is.euclid(as.dist(dist.chisq))
+```
+```{r}
+# Análisis MDS
+mds <- cmdscale(dist.chisq, eig=T); mds
+
+plot(mds$points,type="n",xlab="PC1",ylab="PC2")
+abline(h=0,v=0,lty=4,col="gray")
+text(mds$points[,1], mds$points[,2],cex=0.8)
+title("MDS con distancia euclídea")
+```
+
+## Ejercicio 8
+**Realizar un análisis de correspondencias. Calcular la inercia total con los valores propios y las primeras inercias principales (en %). Dibujar una representación simétrica del CA y una representación solo de los virus. Comparar el resultado con el obtenido con la distancia ji-cuadrado.**
+```{r}
+as.table(as.matrix(tobamovirus[1:(ncol(tobamovirus) - 1)]))
+
+
+
+tabla.N <- as.table(as.matrix(tobamovirus[1:(ncol(tobamovirus) - 1)]))
+
+(tabla.F <- round(tabla.N/ sum(tabla.N), 3))
+
+# Frecuencias relativas marginales.
+margin.f <- apply(tabla.F,1,sum)
+margin.c <- apply(tabla.F,2,sum)
+
+# Frecuencias relativas condicionadas por filas.
+
+tabla.P <- sweep(tabla.F, 1, margin.f, "/")
+
+nf <- nrow(tobamovirus[1:(ncol(tobamovirus) - 1)])
+
+D2.chisq <- matrix(0,nf,nf)
+
+for(i in 1:(nf-1))
+  for(j in i:nf)
+    D2.chisq[i,j] <- t(tabla.P[i,]-tabla.P[j,]) %*% diag(1/margin.c) %*% (tabla.P[i,]-tabla.P[j,])
+
+dc <- vector(mode="numeric", nf)
+
+for(i in 1:nf)
+  dc[i] <- t(tabla.P[i,]-margin.c) %*% diag(1/margin.c) %*% (tabla.P[i,]-margin.c)
+names(dc) <- rownames(tabla.N); dc
+
+as.numeric(dc %*% margin.f)
+
+as.numeric(chisq.test(tabla.N)$stat)/sum(tabla.N)
+```
+
+
+
+## Bibliografía
+
+https://rpubs.com/YaPi/393252 [fecha de consulta: 15/04/2025]
