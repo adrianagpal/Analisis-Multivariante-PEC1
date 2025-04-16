@@ -276,7 +276,15 @@ dist.bc <- vegdist(toba_num, "bray")
 nmds.iso <- isoMDS(dist.bc, trace = FALSE)
 
 nmds.iso$stress
+
+# Assess the goodness of fit
+spe.nmds <- metaMDS(toba_num, distance = "bray", k = 2)
+spe.nmds
+
+stressplot(spe.nmds, main = "Shepard plot")
 ```
+
+The correlation between observed dissimilarity and ordination distance (R2 > 0.95) and the stress value relatively low, showing together a good accuracy of the NMDS ordination.
 
 **¿Por qué debemos realizar un MDS no métrico, mejor que un MDS métrico clásico?**
 ```{r}
@@ -294,7 +302,11 @@ NMDS.scree <- function(x) { plot(rep(1, 10), replicate(10,
   for (i in 1:10) {  points(rep(i + 1,10),replicate(10, 
           metaMDS(x, autotransform = F, k = i + 1)$stress)) } }
 
-NMDS.scree(dist.bc)
+invisible(capture.output({
+  NMDS.scree(dist.bc)
+}))
+  
+  
 n <- nrow(as.matrix(dist.bc))
 unos <- rep(1, n)
 I <- diag(unos)
@@ -323,8 +335,6 @@ abline(h = 0.2, col = "red", lty = 2)  # línea de referencia
 ```
 
 ```{r}
-nmds.iso$stress
-
 scree.plot = function(d, k) {
     stresses=isoMDS(d, k=k)$stress
     for(i in rev(seq(k-1)))  
@@ -337,6 +347,37 @@ scree.plot(dist.bc, k=6)
 nmds.sh <- Shepard(dist.bc, nmds.iso$points)
 plot(nmds.sh, pch="x")
 ```
+
+```{r}
+# Plot NMDS
+data.iwr = as.data.frame(scores(spe.nmds)$sites)
+
+species.iwr = as.data.frame(scores(spe.nmds)$species)
+
+species.iwr$species <- rownames(species.iwr)
+
+ggplot() + 
+  geom_text(data = species.iwr, aes(x = NMDS1, y = NMDS2, label = species)) + 
+  geom_point(data = data.iwr, aes(x = NMDS1, y = NMDS2)) +  
+  annotate(geom = "label", x = 0.5, y = 1.25, size = 5, fill="lightgrey",
+           label = paste("Stress: ", round(spe.nmds$stress, digits = 3))) +
+  theme_bw() + 
+  theme(legend.position = "right", text = element_text(size = 15) ) + 
+  labs(colour="Site")
+
+
+### Construct the biplot
+plot(spe.nmds, type = "none", main = paste("NMDS/Bray - Stress=",
+    round(spe.nmds$stress, 3)), xlab = c("NMDS1"), ylab = c("NMDS2"))
+points(scores(spe.nmds, display = "sites", choices = c(1,
+    2)), pch = 21, col = "black", bg = "steelblue", cex = 1.2)
+text(scores(spe.nmds, display = "species", choices = c(1)),
+    scores(spe.nmds, display = "species", choices = c(2)),
+    labels = rownames(scores(spe.nmds, display = "species")),
+    col = "red", cex = 0.8)
+```
+
+
 
 ## Ejercicio 5
 **Realizar un mapa no lineal de Sammon, es decir, otro tipo de MDS no métrico con la distancia de Bray-Curtis y los datos de Tobamovirus. Dibujar los gráficos del apartado anterior y responder las mismas cuestiones.**
@@ -464,3 +505,7 @@ title(main="Solución simétrica",line=1)
 ## Bibliografía
 
 https://rpubs.com/YaPi/393252 [fecha de consulta: 15/04/2025]
+
+https://rpubs.com/robinfromthahood/NMDS [fecha de consulta: 16/04/2025] NMDS
+
+https://r.qcbs.ca/workshop09/book-en/nonmetric-multidimensional-scaling.html [fecha de consulta: 16/04/2025] NMDS
