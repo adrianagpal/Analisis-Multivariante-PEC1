@@ -1,11 +1,20 @@
 ---
 title: "AnalisisMultivariantePEC1"
 output:
-  pdf_document: default
-  html_document: default
+  pdf_document:
+    toc: true
+    toc_depth: '3'
+    latex_engine: lualatex
+  html_document:
+    toc: true
+    toc_depth: 3
+    toc_float:
+      collapsed: true
+      smooth_scroll: true
+    highlight: textmate
 ---
 
-```{r}
+```{r warning=FALSE, message=FALSE}
 library(dplyr)
 library(ggplot2)
 library(factoextra)
@@ -13,6 +22,9 @@ library(labdsv)
 library(vegan)
 library(MASS)
 library(ca)
+library(ggpubr)
+library(ggrepel)
+library(ade4)
 
 set.seed(4567)
 
@@ -22,7 +34,7 @@ knitr::opts_chunk$set(fig.width=6, fig.height=3, fig.align="center")
 # Ejercicio 1. Antes de empezar el análisis realizaremos una estadística descriptiva inicial.
 
 **(a) Los datos son recuentos de 0 a 32. Calcular los totales por virus que llamaremos total_residue. Dar el recorrido de esta variable.**
-```{r}
+```{r warning=FALSE, message=FALSE}
 load(file = "virus.rda")
 
 # Calculamos totales por virus
@@ -80,100 +92,211 @@ df$class <- cut(df$total_residue,
 
 **Realizar un análisis de componentes principales con los n = 38 virus del grupo Tobamovirus con las p = 18 características. Considerar las variables “tal cual” y repetir el análisis con las variables escaladas. Utilizar un máximo de 6 componentes. Realizar los gráficos y todas las explicaciones sobre este análisis.**
 
-```{r}
+```{r fig.width=8, fig.height=5}
+# Seleccionamos tobamoviruses
 tobamovirus <- virus[which(virus$type == "Toba"),]
 
 # Eliminamos duplicado
 tobamovirus <- tobamovirus %>% distinct()
 
-virus.pc <- prcomp(tobamovirus[1:(ncol(tobamovirus) - 1)], scale = FALSE)
+# Seleccionar matriz de datos numéricos
+toba_num <- select_if(tobamovirus, is.numeric)
 
-fviz_eig(virus.pc, ncp = 6)
-summary(virus.pc)
+# Calcular desviación estándar por columna
+apply(toba_num, 2, sd)
 
-fviz_pca_ind(virus.pc,
-             col.ind = "cos2", # Color by the quality of representation
+# PCA con variables sin escalar ni centrar
+virus.pca.noscale <- prcomp(toba_num, scale = FALSE, center = FALSE)
+
+# Proporción de la varianza total explicada por cada componente
+fviz_eig(virus.pca.noscale, addlabels = TRUE, ncp = 6, main = "% Variation") + ylim(0, 100)
+
+summary(virus.pca.noscale)
+
+# Contribución (%) de cada variable a cada componente
+var <- get_pca_var(virus.pca.noscale)
+
+var$contrib[,1:2]
+
+# Gráfico de variables
+g1 <- fviz_pca_var(virus.pca.noscale,
+             col.var = "contrib", 
              gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"),
-             repel = TRUE     # Avoid text overlapping
-             )
+             repel = TRUE)
 
-fviz_pca_var(virus.pc,
-             col.var = "contrib", # Color by contributions to the PC
+# Diagrama de dispersión formado por los dos primeros ejes principales
+g2 <- fviz_pca_ind(virus.pca.noscale,
+             col.ind = "cos2", 
              gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"),
-             repel = TRUE     # Avoid text overlapping
-             )
+             repel = TRUE)
 
-(eig.val <- get_eigenvalue(virus.pc))
+# Combinar en un solo panel
+ggarrange(g1, g2, ncol = 2, nrow = 1)
 
-# PCA con variables escaladas
-virus.pcscale <- prcomp(tobamovirus[1:(ncol(tobamovirus) - 1)], scale = TRUE)
+(eig.val <- get_eigenvalue(virus.pca.noscale))
 
-fviz_eig(virus.pcscale, ncp = 6)
+# PCA con variables escaladas y centradas
+virus.pcscale <- prcomp(toba_num, scale = TRUE, center = TRUE)
+
+# Proporción de la varianza total explicada por cada componente
+fviz_eig(virus.pcscale, addlabels = TRUE, ncp = 6, main = "% Variation") + ylim(0, 30)
+
 summary(virus.pcscale)
 
-fviz_pca_ind(virus.pcscale,
-             col.ind = "cos2", # Color by the quality of representation
-             gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"),
-             repel = TRUE     # Avoid text overlapping
-             )
+# Contribución (%) de cada variable a cada componente
+var <- get_pca_var(virus.pcscale)
 
-fviz_pca_var(virus.pcscale,
-             col.var = "contrib", # Color by contributions to the PC
+var$contrib[,1:2]
+
+# Gráfico de variables
+g3 <- fviz_pca_var(virus.pcscale,
+             col.var = "contrib", 
              gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"),
-             repel = TRUE     # Avoid text overlapping
-             )
+             repel = TRUE)
+
+# Diagrama de dispersión formado por los dos primeros ejes principales
+g4 <- fviz_pca_ind(virus.pcscale,
+             col.ind = "cos2", 
+             gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"),
+             repel = TRUE)
+
+# Combinar en un solo panel
+ggarrange(g3, g4, ncol = 2, nrow = 1)
 
 (eig.val <- get_eigenvalue(virus.pcscale))
 ```
 
+El hecho de que un único componente principal explique casi toda la varianza total hace pensar que las variables son colineales. 
+
 **¿Cuales son las variables con mayor contribución a los dos primeros ejes en los dos análisis?**
+En el análisis de componentes principales con las variables sin centrar ni escalar, la mayor parte de la varianza total es explicada por un único componente, que explica el 96.1%. Las variables que contribuyen en mayor medida son V1, V2, V3, V4 y V7. 
+
+En el PCA con las variables centradas y escaladas, se necesitan cinco componentes principales para superar el 80% de la variabilidad explicada. Las variables con mayor contribución son V4, V8, V10, V13 y V14. 
 
 **¿Se observan algunas agrupaciones de los virus? ¿Cuantas?**
 
+En el primer análisis, se observan dos agrupaciones, conteniendo una de ellas la mayoría de los individuos. En el segundo análisis, se observan tres agrupaciones. 
+
 **Identificar el virus que está entre dos grupos. Utilizar como etiquetas las originales de la base de datos completa. Ajustar el tamaño de las etiquetas para que sean visibles en el gráfico de dispersión.**
+
+El individuo 11 se encuentre entre dos agrupaciones. Esto es visible únicamente en el PCA con datos centrados y escalados. 
 
 ## Ejercicio 3
 **Realizar un análisis MDS clásico con la distancia euclídea entre los virus del grupo Tobamovirus y con las variables sin escalar.**
 ```{r}
 # Calcular matriz de distancias euclídeas
-D <- as.matrix(dist(tobamovirus[1:(ncol(tobamovirus) - 1)]))
+D <- as.matrix(dist(toba_num))
+
+rownames(D) <- rownames(D)
 ```
 
 **Dibujar el gráfico de dispersión en dos dimensiones y valorar el resultado.**
 ```{r}
-# Análisis MDS
-mds <- cmdscale(D,eig=T); mds
+# Análisis MDS clásico
+mds <- cmdscale(D, k=5, eig=T); mds
+
+# Autovalores asociados a las dimensiones del MDS
+(lam <- mds$eig)
+
+# Bondad de ajuste
+sum(lam[1:2])/sum(lam[lam>0])
+
+cumsum(abs(lam)) / sum(abs(lam))
+cumsum(lam^2) / sum(lam^2)
+
+pb <- cumsum(lam) / sum(lam) * 100
+
+# Porcentaje acumulado de cobertura
+names(pb) <- paste("PC",1:10)
+barplot(pb[1:9], ylab="porcentaje", ylim=c(0,100))
+title(main="Porcentaje acumulado de cobertura",line=1.5)
+
+plot(mds$points^2, type="n", xlab="Coordinate 1", ylab="Coordinate 2")
+abline(h=0, v=0, lty=4, col="gray")
+text(mds$points[,1], mds$points[,2], cex=0.8)
+title("MDS con distancia euclídea")
+
+n <- nrow(as.matrix(D))
+unos <- rep(1,n)
+I <- diag(unos)
+H <- I - 1/n*(unos %*% t(unos))
+B <- -1/2*(H %*% as.matrix(D) %*% H)
+rownames(B) <- rownames(as.matrix(D))
+colnames(B) <- colnames(as.matrix(D))
+evv <- eigen(B)$values; evv
+
+eigen(B)$values
+
+B.eigen <- eigen(B)
+
+sum(B.eigen$val[1:18])/sum(B.eigen$val[B.eigen$val>0])
 
 plot(mds$points,type="n",xlab="PC1",ylab="PC2")
 abline(h=0,v=0,lty=4,col="gray")
-text(mds$points[,1], mds$points[,2],cex=0.8)
-title("MDS con distancia euclídea")
+text(mds$points[,1], mds$points[,2],labels=rownames(D),cex=0.8)
+
+plot(mds$points[,2:3],type="n",xlab="PC2",ylab="PC3")
+abline(h=0,v=0,lty=4,col="gray")
+text(mds$points[,2], mds$points[,3],labels=rownames(D),cex=0.8)
+
+plot(mds$points[,3:4],type="n",xlab="PC3",ylab="PC4")
+abline(h=0,v=0,lty=4,col="gray")
+text(mds$points[,3], mds$points[,4],labels=rownames(D),cex=0.8)
+
+plot(mds$points[,4:5],type="n",xlab="PC4",ylab="PC5")
+abline(h=0,v=0,lty=4,col="gray")
+text(mds$points[,4], mds$points[,5],labels=rownames(D),cex=0.8)
 ```
+
+Si comprobamos cuántas coordenadas necesitamos para representar adecuadamente la matriz de distancias, los valores sugieren que necesitamos al menos 5 coordenadas. Necesitamos al menos 4 coordenadas para cubrir el 80% de la variabilidad. Las agrupaciones no se conservan bien cuando se representan las distintas coordenadas.
+Los valores sugieren que las primeras dos coordenadas no ofrecen una representación adecuada de las distancias observadas. 
 
 **Uno de los objetivos del estudio es hallar virus aislados o “alejados de cualquier grupo”. Para ello podemos utilizar el gráfico mean vs minimum de la función disana() del paquete labdsv. Los puntos más a la derecha y arriba nos indican observaciones alejadas de cualquier grupo.**
 ```{r}
-disana(D, panel = 3)
+outliers <- disana(D, panel = 3)
+
+merge(outliers$min, outliers$mean, by = "row.names") %>%
+  rename(min = x, mean = y) %>%
+  ggplot(aes(x = min, y = mean, label = Row.names)) +
+    theme(plot.title = element_text(hjust = 0.5)) +
+    xlab("Minimum Dissimilarity") +
+    ylab("Average Dissimilatity") +
+    geom_point() +
+    geom_text_repel(size = 3) +
+theme_bw()
 ```
 
 ## Ejercicio 4
 **Como las variables son puntuaciones no continuas, la distancia euclídea no parece la mejor elección. Entre las alternativas podemos considerar la distancia de Bray-Curtis. Realizar un MDS no métrico de Kruskal con la distancia de Bray-Curtis entre los virus del grupo Tobamovirus.**
 ```{r}
-dist.bc <- vegdist(tobamovirus[1:(ncol(tobamovirus) - 1)], "bray")
+# Calcular matriz de distancias de Bray-Curtis
+dist.bc <- vegdist(toba_num, "bray")
 
+# Calcular NMDS 
 nmds.iso <- isoMDS(dist.bc, trace = FALSE)
+
+nmds.iso$stress
 ```
 
 **¿Por qué debemos realizar un MDS no métrico, mejor que un MDS métrico clásico?**
 ```{r}
-library(ade4)
-
-is.euclid(dist.bc,print=T)
+is.euclid(dist.bc, print=T)
 ```
+
+El MDS no métrico se basa en distancias u órdenes de rango en lugar de en distancias euclídeas. El MDS clásico asume que la matriz de distancias proviene de un espacio euclídeo. Sin embargo, al comprobar si dicha matriz es euclídea, vemos que no lo es. Por tanto, la representación de los puntos puede no mostrar adecuadamente las distancias entre los individuos. 
 
 **Dibujar un scree plot sobre el stress para evaluar el número de ejes a considerar. Dibujar también un gráfico de Shepard para comparar las distancias originales y las propuestas por el MDS no métrico con 2 dimensiones. ¿Cuantos subgrupos vemos en el gráfico de dispersión con 2 dimensiones?**
 ```{r}
+NMDS.scree <- function(x) { plot(rep(1, 10), replicate(10, 
+          metaMDS(x, autotransform = F, k = 1)$stress),  
+          xlim = c(1, 10),ylim = c(0, 0.30), xlab = "# of Dimensions",  
+          ylab = "Stress", main = "NMDS stress plot") 
+  for (i in 1:10) {  points(rep(i + 1,10),replicate(10, 
+          metaMDS(x, autotransform = F, k = i + 1)$stress)) } }
+
+NMDS.scree(dist.bc)
 n <- nrow(as.matrix(dist.bc))
-unos <- rep(1,n)
+unos <- rep(1, n)
 I <- diag(unos)
 H <- I - 1/n*(unos %*% t(unos))
 B <- -1/2*(H %*% as.matrix(dist.bc) %*% H)
@@ -184,9 +307,8 @@ evv <- eigen(B)$values; evv
 pb <- evv[1:10]/sum(evv[1:10])*100; round(pb,2)
 
 names(pb) <- paste("PC",1:10)
-barplot(pb,ylab="porcentaje")
-title(main="Porcentaje acumulado de cobertura",line=1.5)
-
+barplot(pb, ylab="porcentaje")
+title(main="Porcentaje acumulado de cobertura", line=1.5)
 
 stress_values <- numeric(10)
 for (k in 1:10) {
@@ -230,9 +352,13 @@ text(nmds.sa$points, cex=.8)
 ```{r}
 library(Pursuit)
 
-pp_ft <- PP_Optimizer(tobamovirus[1:(ncol(tobamovirus) - 1)], findex = "friedmantukey")
+invisible(capture.output({
+  pp_ft <- PP_Optimizer(tobamovirus[1:(ncol(tobamovirus) - 1)], findex = "friedmantukey")
+  }))
 
-pp_ht <- PP_Optimizer(tobamovirus[1:(ncol(tobamovirus) - 1)], findex = "hermite")
+invisible(capture.output({
+  pp_ht <- PP_Optimizer(tobamovirus[1:(ncol(tobamovirus) - 1)], findex = "hermite")
+  }))
 
 plot(pp_ft$proj.data)
 
