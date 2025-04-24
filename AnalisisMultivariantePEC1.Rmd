@@ -12,6 +12,10 @@ output:
       collapsed: true
       smooth_scroll: true
     highlight: textmate
+    
+header-includes:
+      - \usepackage{setspace}  # Cargar el paquete para ajustar el espaciado entre líneas
+      - \setlength{\baselineskip}{1.1\baselineskip}
 ---
 
 ```{r setup, include=FALSE, warning=FALSE, message=FALSE}
@@ -25,6 +29,9 @@ library(ca)
 library(ggpubr)
 library(ggrepel)
 library(ade4)
+library(Pursuit)
+library(gridExtra)
+library(svs)
 
 set.seed(4567)
 
@@ -148,17 +155,15 @@ fviz_pca_ind(virus.pcscale, col.ind = "cos2",
              ggtitle("Individuos PCA (variables estandarizadas)")
 ```
 
-
-
-El análisis de componentes principales realizado con las variables sin estandarizar muestra que un único componente explica un 96.1% de la varianza total, lo que representa casi el total de la variabilidad del conjunto de datos. Esto indica que existe un alto grado de colinealidad entre las variables. Cuando calculamos la desviación estándar de las variables, sin embargo, podemos observar que tienen rangos muy distintos. Por tanto, sería recomendable estandarizar las variables para que presenten una varianza unitaria, lo que equivale a utilizar la matriz de correlaciones. En el PCA a partir de las variables estandarizadas, observamos que necesitamos al menos cinco componentes para explicar un 80% de la varianza total. 
+El análisis de componentes principales realizado con las variables sin estandarizar muestra que un único componente explica un 96.1% de la varianza total, lo que representa casi el total de la variabilidad del conjunto de datos. Esto indica que existe un alto grado de colinealidad entre las variables. Cuando calculamos la desviación estándar de las variables, sin embargo, podemos observar que tienen rangos muy distintos. Por tanto, sería recomendable estandarizar las variables para que presenten una varianza unitaria, lo que equivale a utilizar la matriz de correlaciones. En el PCA a partir de las variables estandarizadas, observamos que necesitamos al menos cinco componentes para explicar un 80% de la varianza total.
 
 **¿Cuales son las variables con mayor contribución a los dos primeros ejes en los dos análisis?**
 
-En el análisis de componentes principales con las variables sin estandarizar, las variables que contribuyen en mayor medida son V1, V2, V3, V4 y V7. En el PCA con las variables estandarizadas, las variables con mayor contribución son V4, V8, V10, V13 y V14. 
+En el análisis de componentes principales con las variables sin estandarizar, las variables que contribuyen en mayor medida son V1, V2, V3, V4 y V7. En el PCA con las variables estandarizadas, las variables con mayor contribución son V4, V8, V10, V13 y V14.
 
 **¿Se observan algunas agrupaciones de los virus? ¿Cuantas?**
 
-En el primer análisis, se observan dos agrupaciones, conteniendo una de ellas la mayoría de los individuos. En el segundo análisis, se observan tres agrupaciones. 
+En el primer análisis, se observan dos agrupaciones, conteniendo una de ellas la mayoría de los individuos. En el segundo análisis, se observan tres agrupaciones.
 
 **Identificar el virus que está entre dos grupos.**
 
@@ -178,7 +183,7 @@ mds <- cmdscale(dist.euc, eig=T)
 
 **Dibujar el gráfico de dispersión en dos dimensiones y valorar el resultado.**
 
-```{r fig.height=5}
+```{r eval=FALSE}
 # Autovalores asociados a las dimensiones del MDS
 lam <- mds$eig
 
@@ -191,14 +196,58 @@ pos <- barplot(pb[1:9],
                ylab="Porcentaje", 
                ylim=c(0,110), 
                main="Porcentaje acumulado de varianza explicada")
-text(x = pos, y = pb[1:9] + 3, labels = paste(round(pb[1:9], 1), "%"), cex = 0.9)
+text(x = pos, y = pb[1:9] + 5, labels = paste(round(pb[1:9], 1), "%"), cex = 0.9)
 
 # Gráfico de dispersión con dos coordenadas
 plot(mds$points, type="n", xlab="Coordenada 1", ylab="Coordenada 2")
 abline(h=0, v=0, lty=4, col="gray")
 text(mds$points[,1], mds$points[,2], labels=rownames(dist.euc), cex=0.8)
 title("MDS con distancia euclídea")
+```
 
+```{r fig.height=3, echo=FALSE}
+# Autovalores asociados a las dimensiones del MDS
+lam <- mds$eig
+
+# Bondad de ajuste
+pb <- cumsum(lam) / sum(lam) * 100
+
+par(mar = c(4, 4, 2, 4))
+
+# Porcentaje acumulado de varianza explicada
+names(pb) <- paste("PC",1:9)
+pos <- barplot(pb[1:9], 
+               ylab="Porcentaje", 
+               ylim=c(0, 110), 
+               main="Porcentaje acumulado de varianza explicada")
+text(x = pos, y = pb[1:9] + 5, labels = paste(round(pb[1:9], 1), "%"), cex = 0.9)
+
+# Gráfico de dispersión con dos coordenadas
+plot(mds$points, type="n", xlab="Coordenada 1", ylab="Coordenada 2")
+abline(h=0, v=0, lty=4, col="gray")
+text(mds$points[,1], mds$points[,2], labels=rownames(dist.euc), cex=0.8)
+title("MDS con distancia euclídea")
+```
+
+```{r fig.height=5, eval=FALSE}
+# Análisis MDS clásico con k=4
+mds <- cmdscale(dist.euc, k=4, eig=T)
+
+# Representación dos a dos de algunas coordenadas principales
+plot(mds$points,type="n", xlab="PC1", ylab="PC2")
+abline(h=0, v=0, lty=4, col="gray")
+text(mds$points[,1], mds$points[,2], labels=rownames(dist.euc), cex=0.8)
+
+plot(mds$points[,2:3], type="n",xlab="PC2", ylab="PC3")
+abline(h=0, v=0, lty=4, col="gray")
+text(mds$points[,2], mds$points[,3], labels=rownames(dist.euc), cex=0.8)
+
+plot(mds$points[,3:4], type="n", xlab="PC3", ylab="PC4")
+abline(h=0, v=0, lty=4, col="gray")
+text(mds$points[,3], mds$points[,4], labels=rownames(dist.euc), cex=0.8)
+```
+
+```{r fig.height=5, echo=FALSE}
 # Análisis MDS clásico con k=4
 mds <- cmdscale(dist.euc, k=4, eig=T)
 
@@ -219,7 +268,7 @@ abline(h=0, v=0, lty=4, col="gray")
 text(mds$points[,3], mds$points[,4], labels=rownames(dist.euc), cex=0.8)
 ```
 
-Según el porcentaje acumulado de varianza explicada, se necesitan al menos 4 coordenadas para cubrir el 80% de la variabilidad y así representar adecuadamente la matriz de distancias. Esto implica que las dos primeras coordenadas de las distancias en dimensión reducida no ofrecen una representación adecuada de las distancias observadas originalmente. Al representar las coordenadas dos a dos, observamos que las agrupaciones se conservan en los gráficos que combinan la primera con la segunda coordenada, y la segunda con la tercera. Sin embargo, dicha estructura no se conserva al representar la tercera frente a la cuarta. 
+Según el porcentaje acumulado de varianza explicada, se necesitan al menos 4 coordenadas para cubrir el 80% de la variabilidad y así representar adecuadamente la matriz de distancias. Esto implica que las dos primeras coordenadas de las distancias en dimensión reducida no ofrecen una representación adecuada de las distancias observadas originalmente. Al representar las coordenadas dos a dos, observamos que las agrupaciones se conservan en los gráficos que combinan la primera con la segunda coordenada, y la segunda con la tercera. Sin embargo, dicha estructura no se conserva al representar la tercera frente a la cuarta.
 
 **Uno de los objetivos del estudio es hallar virus aislados o “alejados de cualquier grupo”. Para ello podemos utilizar el gráfico mean vs minimum de la función disana() del paquete labdsv. Los puntos más a la derecha y arriba nos indican observaciones alejadas de cualquier grupo.**
 
@@ -239,13 +288,24 @@ merge(outliers$min, outliers$mean, by = "row.names") %>%
 theme_bw()
 ```
 
-El gráfico nos indica que los individuos 17 y 11 se encuentran alejados del resto de agrupaciones. 
+El gráfico nos indica que los individuos 17 y 11 se encuentran alejados del resto de agrupaciones.
 
 # Ejercicio 4: MDS no métrico de Kruskal
 
 **Como las variables son puntuaciones no continuas, la distancia euclídea no parece la mejor elección. Entre las alternativas podemos considerar la distancia de Bray-Curtis. Realizar un MDS no métrico de Kruskal con la distancia de Bray-Curtis entre los virus del grupo Tobamovirus.**
 
-```{r}
+```{r, eval=FALSE}
+# Calculamos matriz de distancias de Bray-Curtis
+dist.bc <- vegdist(toba_num, "bray")
+
+# Calculamos NMDS de Kruskal
+nmds.krus <- metaMDS(toba_num, distance = "bray", k = 2)
+
+# Valor de estrés del NMDS de Kruskal
+nmds.krus$stress
+```
+
+```{r, echo=FALSE}
 # Calculamos matriz de distancias de Bray-Curtis
 dist.bc <- vegdist(toba_num, "bray")
 
@@ -254,7 +314,7 @@ invisible(capture.output({
   nmds.krus <- metaMDS(toba_num, distance = "bray", k = 2)
   }))
 
-# Valor de estrés del NMDS
+# Valor de estrés del NMDS de Kruskal
 nmds.krus$stress
 ```
 
@@ -265,11 +325,11 @@ nmds.krus$stress
 is.euclid(dist.bc, print=T)
 ```
 
-El MDS no métrico se basa en distancias o rangos de orden en lugar de distancias euclídeas. El MDS clásico asume que la matriz de distancias proviene de un espacio euclídeo, mientras que el NMDS no realiza esta suposición. Al comprobar si la matriz de distancias de Bray-Curtis es euclídea, encontramos que no lo es. Por tanto, la representación de los puntos podría no mostrar adecuadamente las distancias entre los individuos. 
+El MDS no métrico se basa en distancias o rangos de orden en lugar de distancias euclídeas. El MDS clásico asume que la matriz de distancias proviene de un espacio euclídeo, mientras que el NMDS no realiza esta suposición. Al comprobar si la matriz de distancias de Bray-Curtis es euclídea, encontramos que no lo es. Por tanto, la representación de los puntos podría no mostrar adecuadamente las distancias entre los individuos.
 
-**Dibujar un scree plot sobre el stress para evaluar el número de ejes a considerar. Dibujar también un gráfico de Shepard para comparar las distancias originales y las propuestas por el MDS no métrico con 2 dimensiones.** 
+**Dibujar un scree plot sobre el stress para evaluar el número de ejes a considerar. Dibujar también un gráfico de Shepard para comparar las distancias originales y las propuestas por el MDS no métrico con 2 dimensiones.**
 
-```{r}
+```{r fig.height=3.5}
 # Scree plot
 stress_values <- numeric(10)
 for (k in 1:10) {
@@ -281,32 +341,45 @@ plot(1:10, stress_values, type = "b", pch = 19,
      xlab = "Número de dimensiones (k)", ylab = "Stress",
      main = "Scree plot - MDS no métrico (Kruskal)")
 abline(h = 0.2, col = "red", lty = 2)  # línea de referencia
+```
+
+```{r fig.height=3, eval=FALSE}
+# Gráfico de Shepard
+stressplot(nmds.krus, main = "Shepard plot")
+```
+
+```{r fig.height=3, echo=FALSE}
+par(mar = c(4, 4, 1.5, 3))
 
 # Gráfico de Shepard
 stressplot(nmds.krus, main = "Shepard plot")
 ```
 
-La correlación entre la disimilitud observada y la distancia de ordenación (R2 > 0.95), así como un valor de estrés relativamente bajo, muestran en conjunto una buena precisión en la ordenación NMDS.
+La correlación entre la disimilitud observada y la distancia de ordenación (R2 \> 0.95), así como un valor de estrés relativamente bajo, muestran en conjunto una buena precisión en la ordenación NMDS.
 
 **¿Cuantos subgrupos vemos en el gráfico de dispersión con 2 dimensiones?**
 
-```{r}
-# Plot NMDS
+```{r fig.height=3}
+par(mar = c(4, 4, 1.5, 3))
+
+# Gráfico de dispersión NMDS
 plot(nmds.krus$points,type="n",xlab="PC1",ylab="PC2")
 abline(h=0,v=0,lty=4,col="gray")
-text(nmds.krus$points[,1], nmds.krus$points[,2], labels=rownames(dist.euc), cex=0.5)
+text(nmds.krus$points[,1], nmds.krus$points[,2], labels=rownames(as.matrix(dist.bc)), cex=0.5)
 title(paste("MDS no métrico - Stress:", round(nmds.krus$stress, digits = 3)))
 ```
 
-
+Las agrupaciones no se encuentran bien definidas, pero se pueden intuir 4 grupos.
 
 # Ejercicio 5: MDS no métrico de Sammon
+
 **Realizar un mapa no lineal de Sammon, es decir, otro tipo de MDS no métrico con la distancia de Bray-Curtis y los datos de Tobamovirus. Dibujar los gráficos del apartado anterior y responder las mismas cuestiones.**
+
 ```{r}
+# MDS no métrico de Sammon
 nmds.sa <- sammon(dist.bc, trace = FALSE)
 
 # scree plot
-
 stress_values <- numeric(10)
 for (k in 1:10) {
   fit <- sammon(dist.bc, k = k, trace = FALSE)
@@ -320,148 +393,221 @@ abline(h = 0.2, col = "red", lty = 2)  # línea de referencia
 
 # Shepard plot
 virus.sh <- Shepard(dist.bc, nmds.sa$points, p=2)
-plot(virus.sh, pch=".")
-lines(virus.sh$x, virus.sh$yf, type = "S")
 
+plot(virus.sh$x, virus.sh$y, 
+     xlab = "Distancia original (Bray-Curtis)", 
+     ylab = "Distancia proyectada", 
+     main = "Shepard plot", 
+     pch = 1, col = "blue")
+lines(virus.sh$x, virus.sh$yf, col = "red", lwd = 2, lty = 1)
 
-eqscplot(nmds.sa$points, type="n")
-text(nmds.sa$points, cex=.8)
+r2 <- round(summary(lm(virus.sh$y ~ virus.sh$x))$r.squared, 3)
 
-#Checking goodness of fit:
+# Correlación de Spearman (non-metric fit)
+nonmetric_fit <- round(cor(virus.sh$x, virus.sh$y, method = "spearman"), 2)
 
+text(x = 0.01, y = 0.22, adj = 0, cex = 0.9,
+     labels = paste("Non-metric fit, R² =", nonmetric_fit, "\nLinear fit, R² =", r2))
+
+# Valor de estrés del NMDS de Sammon
 nmds.sa$stress
 
 plot(nmds.sa$points,type="n",xlab="PC1",ylab="PC2")
-abline(h=0,v=0,lty=4,col="gray")
-text(nmds.sa$points[,1], nmds.sa$points[,2], labels=rownames(D), cex=0.8)
+abline(h=0, v=0, lty=4, col="gray")
+text(nmds.sa$points[,1], nmds.sa$points[,2], labels=rownames(as.matrix(dist.bc)), cex=0.8)
 title(paste("MDS no métrico - Stress:", round(nmds.sa$stress, digits = 3)))
 
 ```
 
-The key difference between Sammon Stress and the classic MDS stress is that Sammon Stress is normalized by the distance in the high dimensional space rather than the low dimensional representation. This function is usually minimized by gradient descent. 
-https://waterprogramming.wordpress.com/tag/sammon-mapping/
+Con el NMDS de Sammon, los valores de R2 (ajuste lineal) y el ajuste no métrico son más bajos, lo que indica que las distancias proyectadas se ajustan peor a las distancias originales. Sin embargo, el valor del *stress* es menor que con el de Kruskal. Mientras que el método de Kruskal trata todas las distancias por igual, el método de Sammon enfatiza la preservación de las distancias pequeñas (ya que se normaliza dividiendo por la distancia correspondiente). Esto hace que, aunque los valores de ajuste sean inferiores, el valor de stress sea mejor y la visualización de los clusters también.
 
+# Ejercicio 6: *Projection Pursuit*
 
-# Ejercicio 6
+**Por último vamos a utilizar una técnica que pretende hallar la proyección más “interesante” de un conjunto multivariante de datos. Se trata de la llamada projection pursuit (PP). Dibujar las proyecciones en dimensión 2 de cada uno de los índices. Comentar el resultado.**
 
-**Por último vamos a utilizar una técnica que pretende hallar la proyección más “interesante” de un conjunto multivariante de datos. Se trata de la llamada projection pursuit (PP).**
 ```{r}
-library(Pursuit)
-
 invisible(capture.output({
-  pp_ft <- PP_Optimizer(tobamovirus[1:(ncol(tobamovirus) - 1)], findex = "friedmantukey")
+  pp_def <- PP_Optimizer(toba_num)
   }))
 
 invisible(capture.output({
-  pp_ht <- PP_Optimizer(tobamovirus[1:(ncol(tobamovirus) - 1)], findex = "hermite")
+  pp_ft <- PP_Optimizer(toba_num, findex = "friedmantukey")
   }))
 
-plot(pp_ft$proj.data)
+invisible(capture.output({
+  pp_ht <- PP_Optimizer(toba_num, findex = "hermite")
+  }))
 
-plot(pp_ht$proj.data)
+crear_histograma <- function(objeto_proj, proyeccion, titulo, color){
+  
+  ggplot(as.data.frame(objeto_proj), aes(x = paste0("Projection ", proyeccion))) +
+  geom_histogram(binwidth = 0.2, fill = color, color = "black", alpha = 0.7) +
+  ggtitle(titulo) +
+  xlab("Valor proyectado") +
+  ylab("Frecuencia") +
+  theme_minimal()
+}
+
+crear_histograma <- function(objeto_proj, proyeccion, titulo, color){
+  df <- as.data.frame(objeto_proj)
+
+  ggplot(df, aes(x = .data[[paste0("Projection ", proyeccion)]])) +
+    geom_histogram(binwidth = 0.2, fill = color, color = "black", alpha = 0.7) +
+    ggtitle(titulo) +
+    xlab("Valor proyectado") +
+    ylab("Frecuencia") +
+    theme_minimal()
+}
+
+hist_defx <- crear_histograma(pp_def$proj.data, 1, "Histograma (índice por defecto)", "skyblue")
+hist_defy <- crear_histograma(pp_def$proj.data, 2, "Histograma (índice por defecto)", "skyblue")
+
+hist_ftx <- crear_histograma(pp_ft$proj.data, 1, "Histograma (índice Friedman-Tukey)", "lightgreen")
+hist_fty <- crear_histograma(pp_ft$proj.data, 2, "Histograma (índice Friedman-Tukey)", "lightgreen")
+
+hist_htx <- crear_histograma(pp_ht$proj.data, 1, "Histograma (índice Hermite)", "lightyellow")
+hist_hty <- crear_histograma(pp_ht$proj.data, 2, "Histograma (índice Hermite)", "lightyellow")
+
+crear_pp_plot <- function(objeto_proj, titulo){
+  
+  df <- data.frame(
+    x = objeto_proj[,1],
+    y = objeto_proj[,2],
+    label = rownames(objeto_proj))
+
+  ggplot(df, aes(x = x, y = y, label = label)) +
+    theme(plot.title = element_text(hjust = 0.5)) +
+    ggtitle(titulo) +
+    geom_point() +
+    geom_text_repel(size = 3, max.overlaps = Inf) +
+    xlab("Proyección 1") +
+    ylab("Proyección 2") +
+    theme_bw()
+}
+
+ggplot_def <- crear_pp_plot(pp_def$proj.data, "Proyecciones - Índice por defecto")
+ggplot_ft <- crear_pp_plot(pp_ft$proj.data, "Proyecciones - Índice Friedman-Tukey")
+ggplot_ht <- crear_pp_plot(pp_ht$proj.data, "Proyecciones - Índice Hermite")
+
+(figure <- ggarrange(hist_defx, hist_defy, hist_ftx, hist_fty, hist_htx, hist_hty,
+                    ncol = 2, nrow = 3))
 ```
 
-# Ejercicio 7
+```{r, fig.width=10, fig.height=8}
+(figure <- ggarrange(ggplot_def, ggplot_ft, ggplot_ht,
+                    ncol = 1, nrow = 3, align = "hv"))
+```
+
+La técnica de *Projection Pursuit* nos proporciona una forma algorítmica de visualizar la distribución en dimensiones inferiores, llevando a cabo diferentes rotaciones del mismo conjunto de datos. Esto nos ayuda a identificar qué proyecciones se desvían de una distribución gausiana o normal, las cuales son los más "interesantes". Esto nos permite revelar más detalles acerca de la estructura del conjunto de datos.
+
+El índice de Friedman-Tukey está diseñado para revelar grupos en los datos. Sin embargo, el índice de Hermite prioriza las desviaciones de una distribución normal, particularmente en el comportamiento de las colas.
+
+# Ejercicio 7: MDS métrico con distancia ji-cuadrado
+
 **Otra distancia que se utiliza mucho con puntuaciones o frecuencias es la distancia ji-cuadrado. Comprobar que la matriz D de esta distancia sobre los datos de Tobamovirus verifica que**
 
 $$
-B = −1/2  H(D × D)H
-$$
-**es semidefinida positiva y, por lo tanto, la distancia es euclídea. La matriz H es la matriz de centrado. Realizar un MDS con esta distancia y comentar el resultado respecto a los ejercicios anteriores.**
+B = -\frac{1}{2}  H(D × D)H
+$$ **es semidefinida positiva y, por lo tanto, la distancia es euclídea. La matriz H es la matriz de centrado.**
 
 ```{r}
-library(svs)
-
-dist.chisq <- dist_chisquare(as.matrix(tobamovirus[1:(ncol(tobamovirus) - 1)]), diag = TRUE, upper = TRUE)
+# Calcular distancia ji-cuadrado
+dist.chisq <- dist_chisquare(as.matrix(toba_num), diag = TRUE, upper = TRUE)
 
 n <- nrow(as.matrix(dist.chisq))
 unos <- rep(1,n)
 I <- diag(unos)
+
+# Calculamos matriz de centrado H y matriz de distancias al cuadrado D
 H <- I - 1/n*(unos %*% t(unos))
-B <- -1/2*(H %*% as.matrix(dist.chisq) %*% H)
-rownames(B) <- rownames(as.matrix(dist.chisq))
-colnames(B) <- colnames(as.matrix(dist.chisq))
+D <- as.matrix(dist.chisq^2)
+
+# Construimos matriz B
+B <- -1/2*(H %*% D %*% H)
+rownames(B) <- colnames(B) <- rownames(as.matrix(dist.chisq))
+
+# Valores propios
 evv <- eigen(B)$values; evv
 
+# Comprobamos si la matriz de distancias es euclídea
 is.euclid(as.dist(dist.chisq))
 ```
+
+Una matriz simétrica es semidefinida positiva si y solo si todos sus autovalores son no negativos, o iguales a cero, lo que equivale a que la matriz sea euclídea. En nuestro caso, existen autovalores negativos, pero son numéricamente insignificantes. Por tanto, podemos confirmar que la matriz de distancias es semidefinida positiva.
+
+**Realizar un MDS con esta distancia y comentar el resultado respecto a los ejercicios anteriores.**
+
 ```{r}
 # Análisis MDS
-mds <- cmdscale(dist.chisq, eig=T); mds$eig
+mds <- cmdscale(dist.chisq, eig=T)
 
-plot(mds$points,type="n",xlab="PC1",ylab="PC2")
-abline(h=0,v=0,lty=4,col="gray")
-text(mds$points[,1], mds$points[,2],cex=0.8)
-title("MDS con distancia euclídea")
+plot(mds$points, type="n", xlab="PC1", ylab="PC2")
+abline(h=0, v=0, lty=4, col="gray")
+text(mds$points[,1], mds$points[,2], labels=rownames(dist.euc), cex=0.8)
+title("MDS con distancia ji-cuadrado")
 ```
 
-# Ejercicio 8
+# Ejercicio 8: Análisis de correspondencias
+
 **Realizar un análisis de correspondencias. Calcular la inercia total con los valores propios y las primeras inercias principales (en %). Dibujar una representación simétrica del CA y una representación solo de los virus. Comparar el resultado con el obtenido con la distancia ji-cuadrado.**
+
 ```{r}
-as.table(as.matrix(tobamovirus[1:(ncol(tobamovirus) - 1)]))
+# Tabla de frecuencias absolutas
+tabla.N <- as.table(as.matrix(toba_num))
 
-
-
-tabla.N <- as.table(as.matrix(tobamovirus[1:(ncol(tobamovirus) - 1)]))
-
+# Tabla de frecuencias relativas
 tabla.F <- tabla.N/ sum(tabla.N)
 
-# Frecuencias relativas marginales.
+# Frecuencias relativas marginales
 margin.f <- apply(tabla.F,1,sum)
 margin.c <- apply(tabla.F,2,sum)
 
-# Frecuencias relativas condicionadas por filas.
-
+# Frecuencias relativas condicionadas por filas
 tabla.P <- sweep(tabla.F, 1, margin.f, "/")
 
-nf <- nrow(tobamovirus[1:(ncol(tobamovirus) - 1)])
+# Análisis de correspondencias
+virus.ca <- ca(tabla.N)
 
-D2.chisq <- matrix(0,nf,nf)
+# Calculamos la inercia total con los valores propios
+sum(virus.ca$rowinertia)
 
-for(i in 1:(nf-1))
-  for(j in i:nf)
-    D2.chisq[i,j] <- t(tabla.P[i,]-tabla.P[j,]) %*% diag(1/margin.c) %*% (tabla.P[i,]-tabla.P[j,])
+# Primeras inercias principales (en %)
+eig.val <- head(get_eigenvalue(virus.ca)); eig.val
 
-dc <- vector(mode="numeric", nf)
+# Representación simétrica CA
+fviz_ca_biplot(virus.ca) +
+  xlim(-1, 0.3) + ylim(-0.3, 1) + ggtitle("Representación simétrica CA")
 
-for(i in 1:nf)
-  dc[i] <- t(tabla.P[i,]-margin.c) %*% diag(1/margin.c) %*% (tabla.P[i,]-margin.c)
-names(dc) <- rownames(tabla.N); dc
-
-as.numeric(dc %*% margin.f)
-
-# Inercia total
-as.numeric(chisq.test(tabla.N)$stat)/sum(tabla.N)
-
-sum(ca(tabla.N)$rowinertia)
-
-plot(ca(tabla.F))
-title(main="Solución simétrica", line=1)
-
-
-Z <- diag(1/sqrt(margin.f)) %*% (tabla.F - margin.f %*% t(margin.c)) %*% diag(1/sqrt(margin.c))
-                                                            
-Z.svd <- svd(Z); Z.svd
-
-f.sc <- diag(1/sqrt(margin.f)) %*% Z.svd$u
-c.sc <- diag(1/sqrt(margin.c)) %*% Z.svd$v
-f.pc <- f.sc %*% diag(Z.svd$d)
-c.pc <- c.sc %*% diag(Z.svd$d)                   
-                                                            library(MASS)        # Mapa de distancias con filas y columnas                
-eqscplot(f.pc[,1:2],type="n",xlab="PC1",ylab="PC2",xlim=c(-1,1.2))
-abline(v=0,h=0, col="gray",lty=4)
-text(f.pc[,1],f.pc[,2],labels=rownames(tabla.F),cex=0.8,font=2,col="blue")
-text(c.pc[,1],c.pc[,2],labels=colnames(tabla.F),cex=0.8,font=2,col= "red")
-title(main="Solución simétrica",line=1)
+# Representación solo de los virus
+fviz_ca_row(virus.ca, shape.row = 16, col.row = "cos2",
+             gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"), 
+             repel = TRUE) + ggtitle("Representación virus")
 ```
 
+Si comparamos la representación del análisis de correspondencias con el MDS con la distancia ji-cuadrado, observamos que los distintos virus presentan las mismas agrupaciones, sólo que el eje x se encuentra invertido. Esto tiene sentido ya que, en el análisis de coordenadas principales o correspondencias, las distancias entre los puntos se corresponden con distancias ji-cuadrado.
+
 # Ejercicio 9
+
 **Realizar un brevísimo informe con las conclusiones sobre la formación de grupos con los datos de Tobamovirus que se deducen de los ejercicios anteriores.**
 
-## Bibliografía
+# Bibliografía
 
-https://rpubs.com/YaPi/393252 [fecha de consulta: 15/04/2025]
+<https://rpubs.com/YaPi/393252> [fecha de consulta: 15/04/2025]
 
-https://rpubs.com/robinfromthahood/NMDS [fecha de consulta: 16/04/2025] NMDS
+<https://rpubs.com/robinfromthahood/NMDS> [fecha de consulta: 16/04/2025] NMDS
 
-https://r.qcbs.ca/workshop09/book-en/nonmetric-multidimensional-scaling.html [fecha de consulta: 16/04/2025] NMDS
+<https://r.qcbs.ca/workshop09/book-en/nonmetric-multidimensional-scaling.html> [fecha de consulta: 16/04/2025] NMDS
+
+<https://cran.r-project.org/web/packages/Pursuit/Pursuit.pdf>
+
+<https://en.wikipedia.org/wiki/Projection_pursuit>
+
+<https://www.youtube.com/watch?v=Os6ebW8Ay9k&t=280s>
+
+<https://es.wikipedia.org/wiki/Matriz_definida_positiva>
+
+<https://www.sthda.com/english/articles/31-principal-component-methods-in-r-practical-guide/113-ca-correspondence-analysis-in-r-essentials/#visualization-and-interpretation>
+
+<https://www.fbbva.es/wp-content/uploads/2017/05/dat/greenacre_cap04.pdf>
+
+<https://www.mathworks.com/help/stats/mdscale.html>
