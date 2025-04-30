@@ -3,6 +3,6 @@
 .RData
 .Ruserdata
 
-*.pdf
+
 *.rda
 *.Rproj
